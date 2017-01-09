@@ -3,6 +3,10 @@
   "author": "Bootcamp Class",
   "version": "0.0.0",
   "private": true,
+  "scripts": {
+      "dev": "mongod -f models/mongod.conf & node dorm-supplies-api.js",
+      "mongo-kill": "killall mongod"
+  },
   "dependencies": {
     "body-parser": "~1.13.2",
     "express": "~4.13.1",
