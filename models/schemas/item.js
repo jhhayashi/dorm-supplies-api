@@ -31,6 +31,8 @@ itemSchema.pre('save', function(callback) {
     if (this.price && this.price < 1)
         return callback(new Error('Invalid price'));
     this.inventory = Math.floor(this.inventory);
+
+    callback();
 });
 
 var Item = mongoose.model('Item', itemSchema);
