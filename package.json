@@ -3,6 +3,9 @@
   "author": "Jordan Hayashi",
   "version": "0.0.0",
   "private": true,
+  "scripts": {
+      "dev": "mongod -f models/mongodb/mongod.conf & node dorm-supplies-api.js"
+  },
   "dependencies": {
     "bcrypt-nodejs": "0.0.3",
     "body-parser": "~1.13.2",
