@@ -21,7 +21,7 @@ exports.createUser = (req, res, next) => {
     if (req.body.password) req.body.hash = req.body.password;
     var newUser = new User(req.body);
     newUser.save()
-    .then((result) => next())
+    .then((result) => res.sendStatus(200))
     .catch((err) => {
         if (err.code === 11000)
             return res.status(400).send('Email already registered');
