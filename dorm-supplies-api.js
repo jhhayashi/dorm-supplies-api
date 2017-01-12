@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
+const favicon = require('serve-favicon');
 const logger = require('morgan');
 const bodyParser = require('body-parser');
 
@@ -8,16 +9,19 @@ const config = require('./models/config');
 
 const users = require('./controllers/users');
 const items = require('./controllers/items');
+const auth = require('./controllers/auth');
 
 mongoose.Promise = global.Promise;
 mongoose.connect(config.dbUrl, {server: {socketOptions: {keepAlive: 120}}});
 
 var app = express();
+var router = express.Router();
 
 if (app.get('env') !== 'production') app.use(logger('dev'));
 // run init scripts
 else require('./init/init');
 
+//app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -26,13 +30,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Middleware
 // ==================================================
 
-app.param('id', (req, res, next, id) => {
+router.param('id', (req, res, next, id) => {
     if (!id.match(/^[0-9a-fA-F]{24}$/))
         return res.status(400).send('Invalid ID');
     next();
 });
 
-app.param('subId', (req, res, next, id) => {
+router.param('subId', (req, res, next, id) => {
     if (!id.match(/^[0-9a-fA-F]{24}$/))
         return res.status(400).send('Invalid second ID');
     next();
@@ -42,33 +46,38 @@ app.param('subId', (req, res, next, id) => {
 // Routes
 // ==================================================
 
-app.route('/users')
-    .get(users.getAllUsers)
-    .post(users.createUser);
-app.route('/users/pending')
-    .get(users.getUndeliveredAndUnpaidPurchases);
-app.route('/users/:id')
-    .get(users.getUserById)
-    .put(users.updateUser)
-    .delete(users.deleteUser);
-app.route('/users/:id/pending')
-    .get(users.getPendingByUserId);
-app.route('/users/:id/pending/:subId')
-    .post(users.markPendingPaid)
-    .delete(users.markPendingDelivered);
+router.route('/users')
+    .get(auth.adminRequired, users.getAllUsers)
+    .post(users.createUser, auth.loginUser);
+router.route('/users/pending')
+    .get(auth.adminRequired, users.getUndeliveredAndUnpaidPurchases);
+router.route('/users/:id')
+    .get(auth.validateToken, users.getUserById)
+    .put(auth.validateToken, users.updateUser)
+    .delete(auth.validateToken, users.deleteUser);
+router.route('/users/:id/pending')
+    .get(auth.adminRequired, users.getPendingByUserId);
+router.route('/users/:id/pending/:subId')
+    .post(auth.adminRequired, users.markPendingPaid)
+    .delete(auth.adminRequired, users.markPendingDelivered);
 
-app.route('/admins/:id')
-    .post(users.makeAdmin)
-    .delete(users.removeAdminPrivs);
+router.route('/admins/:id')
+    .post(auth.adminRequired, users.makeAdmin)
+    .delete(auth.adminRequired, users.removeAdminPrivs);
 
-app.route('/items')
+router.route('/items')
     .get(items.getAllItems)
-    .post(items.createItem);
-app.route('/items/:id')
+    .post(auth.adminRequired, items.createItem);
+router.route('/items/:id')
     .get(items.getItemById)
-    .post(items.purchaseItem)
-    .put(items.updateItemById)
-    .delete(items.deleteItem);
+    .post(auth.validateToken, items.purchaseItem)
+    .put(auth.adminRequired, items.updateItemById)
+    .delete(auth.adminRequired, items.deleteItem);
+
+router.route('/auth/token')
+    .post(auth.loginUser);
+
+app.use('/', router);
 
 // handle 404
 app.use((req, res, next) => {

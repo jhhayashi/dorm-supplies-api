@@ -1,6 +1,15 @@
+const nodemailer = require('nodemailer');
 const Item = require('../models/schemas/item');
 const User = require('../models/schemas/user');
 const config = require('../models/config');
+
+var transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: config.emailFromAddress,
+        pass: config.emailPassword
+    }
+});
 
 exports.getAllItems = (req, res, next) => {
     Item.find({}, (err, items) => {
@@ -17,8 +26,7 @@ exports.getItemById = (req, res, next) => {
     });
 };
 
-// TODO validation
-// promise example!
+// TODO verification
 exports.createItem = (req, res, next) => {
     var newItem = new Item(req.body);
     newItem.save()
@@ -43,10 +51,10 @@ exports.deleteItem = (req, res, next) => {
 
 // TODO auth
 exports.purchaseItem = (req, res, next) => {
-    if (!req.body.userId) return res.status(403).send('Account required');
+    if (!req.user.id) return res.status(403).send('Account required');
     var quantity = req.body.quantity || 1;
     Promise.all([
-        User.findById(req.body.userId).exec(),
+        User.findById(req.user.id).exec(),
         Item.findById(req.params.id).exec()
     ]).then((results) => {
         var user = results[0];
@@ -71,7 +79,14 @@ exports.purchaseItem = (req, res, next) => {
         user.markModified('purchases');
         var userPromise = user.save();
         userPromise.then((user) => {
-            // TODO confirmation email
+            // confirmation email
+            var mailConfig = {
+                from: `"${config.emailFromName}" <${config.emailFromAddress}>`,
+                to: user.email,
+                subject: 'HSA Dorm Supplies Confirmaion',
+                text: `Thank you for purchasing ${quantity} orders of ${item.name}. Please venmo $${quantity * item.price} to ${config.venmoAccount}.`
+            };
+            transporter.sendMail(mailConfig);
 
             if (typeof item.inventory !== 'number') return;
             item.inventory -= quantity;

@@ -9,6 +9,8 @@ exports.getAllUsers = (req, res, next) => {
 };
 
 exports.getUserById = (req, res, next) => {
+    if (req.params.id !== req.user.id && !req.user.isAdmin)
+        return res.status(403).send("You don't have permission to do that");
     User.findById(req.params.id, (err, user) => {
         if (err) return next(err);
         if (!user) return res.status(404).send('No user with that ID');
@@ -21,7 +23,7 @@ exports.createUser = (req, res, next) => {
     if (req.body.password) req.body.hash = req.body.password;
     var newUser = new User(req.body);
     newUser.save()
-    .then((result) => res.sendStatus(200))
+    .then((result) => next())
     .catch((err) => {
         if (err.code === 11000)
             return res.status(400).send('Email already registered');
@@ -31,7 +33,9 @@ exports.createUser = (req, res, next) => {
 
 // TODO verification
 exports.updateUser = (req, res, next) => {
-    User.findByIdAndUpdate(req.params.id, req.body, (err, doc) => {
+    if (req.params.id !== req.user.id && !req.user.isAdmin)
+        return res.status(403).send("You don't have permission to do that");
+    User.findByIdAndUpdate(req.user.id, req.body, (err, doc) => {
         if (err) return next(err);
         if (!doc) return res.status(404).send('No user with that ID');
         res.sendStatus(200);
@@ -39,6 +43,8 @@ exports.updateUser = (req, res, next) => {
 };
 
 exports.deleteUser = (req, res, next) => {
+    if (req.params.id !== req.user.id && !req.user.isAdmin)
+        return res.status(403).send("You don't have permission to do that");
     User.findByIdAndRemove(req.params.id, (err) => {
         if (err) return next(err);
         res.sendStatus(200);
@@ -62,8 +68,29 @@ exports.removeAdminPrivs = (req, res, next) => {
 };
 
 exports.getUndeliveredAndUnpaidPurchases = (req, res, next) => {
-    // i'll let you try this one; good luck!
-    return res.json([]);
+    User.aggregate([
+        { $match: {
+            $and: [
+                {'purchases.purchasedDate': {$exists: true}},
+                {$or: [
+                    {'purchased.isPaid': false},
+                    {'purchased.deliveredDate': {$exists: false}}
+                ]}
+            ]
+        }},
+        { $project: {
+            email: true,
+            purchases: { $filter: {
+                input: '$purchases',
+                as: 'p',
+                cond: { $or: [
+                    { $ne: ['$$p.isPaid', true] },
+                    { $lt: ['$$p.deliveredDate', 1 ]} 
+                ]}
+            }}
+        }}
+    ]).exec().then((users) => res.json(users))
+    .catch((err) => next(err));
 };
     
 exports.getPendingByUserId = (req, res, next) => {
