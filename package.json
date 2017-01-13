@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
       "predev": "if [ -f .mongo_pid ]; then (kill $(cat .mongo_pid) || true)  && rm .mongo_pid; echo \"killed old server!\"; fi",
-      "dev": "echo \"starting new server...\" && mongod -f models/mongodb/mongod.conf & echo $! > .mongo_pid && node dorm-supplies-api.js"
+      "dev": "echo \"starting new server...\" && mongod -f models/mongodb/mongod.conf & echo $! > .mongo_pid && node dorm-supplies-api.js",
+      "start": "node dorm-supplies-api.js"
   },
   "dependencies": {
     "bcrypt-nodejs": "0.0.3",
